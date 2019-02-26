@@ -13,29 +13,81 @@ NM.lib = {
 };
 
 
-function onDragStart(event) {
-  this.alpha = 0.5;
-  this.dragging = 1;
-  this.dragData = event.data;
-  this.dragPointerStart = event.data.getLocalPosition(this.parent);
-  this.dragObjStart = new PIXI.Point();
-  this.dragObjStart.copy(this.position);
-}
+NM.draggable = {
+  startDrag: function(event) {
+    this.alpha = 0.5;
+    this.dragging = 1;
+    this.dragData = event.data;
+    this.dragPointerStart = event.data.getLocalPosition(this.parent);
+    this.dragObjStart = new PIXI.Point();
+    this.dragObjStart.copyFrom(this.position);
+  },
+  updateDrag: function() {
+    if ( ! this.dragging) { return; }
+    let dragPointerEnd = this.dragData.getLocalPosition(this.parent);
+    this.position.set(
+      this.dragObjStart.x + (dragPointerEnd.x - this.dragPointerStart.x),
+      this.dragObjStart.y + (dragPointerEnd.y - this.dragPointerStart.y)
+    );
+  },
+  endDrag: function() {
+    this.alpha = 1;
+    this.dragging = 0;
+    this.dragData = null;
+  },
+  makeDraggable: function(sprite) {
+    sprite.interactive = true;
+    sprite.buttonMode = true;
+    sprite
+      .on('pointerdown'      , this.startDrag  )
+      .on('pointermove'      , this.updateDrag )
+      .on('pointerup'        , this.endDrag    )
+      .on('pointerupoutside' , this.endDrag    );
+  }
+};
 
-function onDragEnd() {
-  this.alpha = 1;
-  this.dragging = 0;
-  this.dragData = null;
-}
 
-function onDragMove() {
-  if ( ! this.dragging) { return; }
-  let dragPointerEnd = this.dragData.getLocalPosition(this.parent);
-  this.position.set(
-    this.dragObjStart.x + (dragPointerEnd.x - this.dragPointerStart.x),
-    this.dragObjStart.y + (dragPointerEnd.y - this.dragPointerStart.y)
-  );
-}
+NM.keyboard = {
+  KEY: function(value) {
+    this.value = value;
+    this.isDown = false;
+    this.isUp = true;
+    this.press = undefined;
+    this.release = undefined;
+    //Attach event listeners
+    const downListener = this.downHandler.bind(this);
+    const upListener = this.upHandler.bind(this);
+    window.addEventListener(
+      'thisdown', downListener, false
+    );
+    window.addEventListener(
+      'thisup', upListener, false
+    );
+    // Detach event listeners
+    this.unsubscribe = function() {
+      window.removeEventListener('thisdown', downListener);
+      window.removeEventListener('thisup', upListener);
+    };
+  }
+};
+
+NM.keyboard.KEY.prototype.downHandler = function(event) {
+  if (event.this === this.value) {
+    if (this.isUp && this.press) { this.press(); }
+    this.isDown = true;
+    this.isUp = false;
+    event.preventDefault();
+  }
+};
+
+NM.keyboard.KEY.prototype.upHandler = function(event) {
+  if (event.this === this.value) {
+    if (this.isDown && this.release) { this.release(); }
+    this.isDown = false;
+    this.isUp = true;
+    event.preventDefault();
+  }
+};
 
 
 PIXI.Loader.shared
@@ -80,6 +132,7 @@ PIXI.Loader.shared.load(function() {
   // Add MAP container
   //mapBg.width = NM.app.screen.width*0.8;
   //mapBg.height = NM.app.screen.height;
+  NM.draggable.makeDraggable(mapBg);
   mapContainer.x = NM.app.screen.width*0.2;
   mapContainer.addChild(mapBg);
   NM.app.stage.addChild(mapContainer);
@@ -99,13 +152,7 @@ PIXI.Loader.shared.load(function() {
     sprite.x = 5;
     sprite.y = i*(sprite.height*itemTypeInfo.scale + 3) + 5;
     sprite.scale.set(itemTypeInfo.scale);
-    sprite.interactive = true;
-    sprite.buttonMode = true;
-    sprite
-      .on('pointerdown'      , onDragStart )
-      .on('pointerup'        , onDragEnd   )
-      .on('pointerupoutside' , onDragEnd   )
-      .on('pointermove'      , onDragMove  );
+    NM.draggable.makeDraggable(sprite);
     sprite.addChild(text);
     NM.app.stage.addChild(sprite);
   }
