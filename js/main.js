@@ -1,11 +1,9 @@
-/*global PIXI, NM, mapdata*/
+/*global PIXI, NM*/
 
 PIXI.utils.sayHello(PIXI.utils.isWebGLSupported() ? 'WebGL' : 'canvas');
 
+
 window.NM = window.NM || {};
-
-
-NM.app = new PIXI.Application({width: 800, height: 600, antialias: true});
 
 
 NM.lib = {
@@ -15,9 +13,29 @@ NM.lib = {
 };
 
 
-// Add the canvas that Pixi automatically created for you to
-// the document body.
-document.body.appendChild(NM.app.view);
+function onDragStart(event) {
+  this.alpha = 0.5;
+  this.dragging = 1;
+  this.dragData = event.data;
+  this.dragPointerStart = event.data.getLocalPosition(this.parent);
+  this.dragObjStart = new PIXI.Point();
+  this.dragObjStart.copy(this.position);
+}
+
+function onDragEnd() {
+  this.alpha = 1;
+  this.dragging = 0;
+  this.dragData = null;
+}
+
+function onDragMove() {
+  if ( ! this.dragging) { return; }
+  let dragPointerEnd = this.dragData.getLocalPosition(this.parent);
+  this.position.set(
+    this.dragObjStart.x + (dragPointerEnd.x - this.dragPointerStart.x),
+    this.dragObjStart.y + (dragPointerEnd.y - this.dragPointerStart.y)
+  );
+}
 
 
 PIXI.Loader.shared
@@ -34,57 +52,85 @@ PIXI.Loader.shared
   .add('grey'      , 'img/32x32/grey32.png');
 
 
+
 PIXI.Loader.shared.load(function() {
-  let app = NM.app;
-  let lib = NM.lib;
+
   let resources = PIXI.Loader.shared.resources;
-  let unplaced = mapdata.items.filter(function(item) { return item.group === 1; });
-  let placed = mapdata.items.filter(function(item) { return item.group === 2; });
+  let unplaced = NM.mapdata.items.filter(function(item) { return item.group === 1; });
+  let placed = NM.mapdata.items.filter(function(item) { return item.group === 2; });
   let shelfContainer = new PIXI.Container();
   let mapContainer = new PIXI.Container();
   let shelfBg = new PIXI.Graphics();
   let mapBg = new PIXI.Sprite(resources.terrein.texture);
   let i;
 
-  // Config SHELF Container
+  NM.app = new PIXI.Application({width: 800, height: 600, antialias: true});
+
+  // Add the canvas that Pixi automatically created for you to
+  // the document body.
+  document.body.appendChild(NM.app.view);
+
+  // Add SHELF container
   shelfBg.beginFill(0x650A5A);
-  shelfBg.drawRect(0, 0, app.screen.width*0.2, app.screen.height);
+  shelfBg.drawRect(0, 0, NM.app.screen.width*0.2, NM.app.screen.height);
   shelfBg.endFill();
   shelfContainer.addChild(shelfBg);
-  app.stage.addChild(shelfContainer);
+  NM.app.stage.addChild(shelfContainer);
 
-  // Config MAP Container
-  mapBg.width = app.screen.width*0.8;
-  mapBg.height = app.screen.height;
-  mapContainer.x = app.screen.width*0.2;
+  // Add MAP container
+  //mapBg.width = NM.app.screen.width*0.8;
+  //mapBg.height = NM.app.screen.height;
+  mapContainer.x = NM.app.screen.width*0.2;
   mapContainer.addChild(mapBg);
-  app.stage.addChild(mapContainer);
+  NM.app.stage.addChild(mapContainer);
 
   window.console.log('unplaced:', unplaced);
   window.console.log('placed:', placed);
 
-  //Add unplaced items
+  // Add UNPLACED / SHELF items
   for (i in unplaced) {
     let item = unplaced[i];
-    let itemTypeInfo = mapdata.itemtypes[item.type];
+    let itemTypeInfo = NM.mapdata.itemtypes[item.type];
     let sprite = new PIXI.Sprite(resources[itemTypeInfo.spr].texture);
+    let text = new PIXI.Text(item.id, { fontSize: 16 });
+    text.anchor.set(0.5);
+    text.x = sprite.width / 2;
+    text.y = sprite.height / 2;
     sprite.x = 5;
     sprite.y = i*(sprite.height*itemTypeInfo.scale + 3) + 5;
     sprite.scale.set(itemTypeInfo.scale);
-    shelfContainer.addChild(sprite);
+    sprite.interactive = true;
+    sprite.buttonMode = true;
+    sprite
+      .on('pointerdown'      , onDragStart )
+      .on('pointerup'        , onDragEnd   )
+      .on('pointerupoutside' , onDragEnd   )
+      .on('pointermove'      , onDragMove  );
+    sprite.addChild(text);
+    NM.app.stage.addChild(sprite);
   }
 
-  // Add placed items
+  // Add PLACED / MAP items
   for (i in placed) {
     let item = placed[i];
-    let itemTypeInfo = mapdata.itemtypes[item.type];
+    let itemTypeInfo = NM.mapdata.itemtypes[item.type];
     let sprite = new PIXI.Sprite(resources[itemTypeInfo.spr].texture);
-    sprite.x = lib.randomInt(mapContainer.width*0.1, mapContainer.width - mapContainer.width*0.2);
-    sprite.y = lib.randomInt(mapContainer.height*0.1, mapContainer.height - mapContainer.height*0.2);
-    sprite.rotation = Math.PI * Math.random(); //radians
+    let text = new PIXI.Text(item.id);
+    text.anchor.set(0.5);
+    text.x = sprite.width / 2;
+    text.y = sprite.height / 2;
+    sprite.x = NM.lib.randomInt(mapContainer.width*0.1, mapContainer.width - mapContainer.width*0.2);
+    sprite.y = NM.lib.randomInt(mapContainer.height*0.1, mapContainer.height - mapContainer.height*0.2);
+    sprite.rotation = 2 * Math.PI * Math.random(); //radians
     sprite.scale.set(itemTypeInfo.scale);
+    sprite.addChild(text);
     mapContainer.addChild(sprite);
   }
+
+  NM.shelfContainer = shelfContainer;
+  NM.mapContainer = mapContainer;
+
 });
 
-window.console.log('PIXI App:', NM.app);
+
+window.console.log('NM:', NM);

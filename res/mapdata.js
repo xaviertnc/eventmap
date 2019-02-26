@@ -1,4 +1,9 @@
-let mapdata = {
+/*global NM*/
+
+window.NM = window.NM || {};
+
+
+NM.mapdata = {
   id: 1,
   name: 'KragDag Ekspo',
   layers: {
@@ -58,5 +63,3 @@ let mapdata = {
     { id: 17, type: 'Maker4x4'       , x: 0, y: 0, z: 0, angle: 0, layer: 'base',  group: 1, data: {} }
   ]
 };
-
-window.console.log('mapdata:', mapdata);
