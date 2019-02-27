@@ -1,7 +1,8 @@
 /*global PIXI, NM*/
 
-PIXI.utils.sayHello(PIXI.utils.isWebGLSupported() ? 'WebGL' : 'canvas');
+window.NM = window.NM || {};
 
+PIXI.utils.sayHello(PIXI.utils.isWebGLSupported() ? 'WebGL' : 'canvas');
 
 PIXI.Loader.shared
   .add('terrein'   , 'img/terrein-skoon.jpg')
@@ -15,9 +16,6 @@ PIXI.Loader.shared
   .add('peach'     , 'img/32x32/peach32.png')
   .add('olive'     , 'img/32x32/olive32.png')
   .add('grey'      , 'img/32x32/grey32.png');
-
-
-window.NM = window.NM || {};
 
 
 NM.lib = {
@@ -71,48 +69,51 @@ NM.keyboard.KEY.prototype.upHandler = function(event) {
 
 
 NM.dragdrop = {
-
+  // The object we're currently dragging.
   dragObject: null,
 
+  // An overlay container covering the entire stage.
+  // Used to temporarily house the currently dragged object
+  // while dragging it accross container boundries.
   dragContainer: new PIXI.Container(),
 
   startDrag: function(event) {
+    let newPos, drgObj = this;
     window.console.log('startDrag');
-    let dragObject = this;
-    let parentContainer = dragObject.parent;
-    dragObject.dragData = event.data;
-    dragObject.parentBeforeDrag = parentContainer;
-    dragObject.dragPointerStartPos = event.data.getLocalPosition(parentContainer);
-    dragObject.dragObjStartPos = new PIXI.Point(dragObject.x, dragObject.y);
-    NM.dragdrop.dragContainer.addChild(dragObject);
-    dragObject.position.copyFrom(parentContainer.toGlobal(dragObject.position));
-    dragObject.alpha = dragObject.dragOpacity;
-    NM.dragdrop.dragObject = dragObject;
+    drgObj.dragData = event.data;
+    drgObj.parentBeforeDrag = drgObj.parent;
+    drgObj.positionBeforeDrag = new PIXI.Point(drgObj.x, drgObj.y);
+    drgObj.pointerStartingPos = event.data.getLocalPosition(drgObj.parent);
+    newPos = NM.dragdrop.dragContainer.toLocal(drgObj.position, drgObj.parent);
+    NM.dragdrop.dragContainer.addChild(drgObj);
+    drgObj.position.copyFrom(newPos);
+    drgObj.alpha = drgObj.dragOpacity;
+    NM.dragdrop.dragObject = drgObj;
     NM.app.stage.addChild(NM.dragdrop.dragContainer);
     event.stopPropagation();
   },
 
   updateDrag: function() {
-    if ( ! NM.dragdrop.dragObject) { return; }
-    // window.console.log('updateDrag');
-    let dragObject = NM.dragdrop.dragObject;
-    let dragPointerEndPos = dragObject.dragData.getLocalPosition(dragObject.parent);
-    dragObject.position.set(
-      dragObject.dragObjStartPos.x + (dragPointerEndPos.x - dragObject.dragPointerStartPos.x),
-      dragObject.dragObjStartPos.y + (dragPointerEndPos.y - dragObject.dragPointerStartPos.y)
+    let pointerEndingPos, drgObj = NM.dragdrop.dragObject;
+    if ( ! drgObj) { return; }
+    pointerEndingPos = drgObj.dragData.getLocalPosition(drgObj.parent);
+    drgObj.position.set(
+      drgObj.positionBeforeDrag.x + (pointerEndingPos.x - drgObj.pointerStartingPos.x),
+      drgObj.positionBeforeDrag.y + (pointerEndingPos.y - drgObj.pointerStartingPos.y)
     );
   },
 
   endDrag: function(event) {
     window.console.log('endDrag');
-    if ( ! NM.dragdrop.dragObject) { return; }
-    let dragObject = NM.dragdrop.dragObject;
-    let dragObjectLocalPos = dragObject.parentBeforeDrag.toLocal(dragObject.position, dragObject.parent);
-    dragObject.parentBeforeDrag.addChild(dragObject);
-    dragObject.position.copyFrom(dragObjectLocalPos);
-    dragObject.parentBeforeDrag = null;
-    dragObject.dragData = null;
-    dragObject.alpha = 1;
+    let newPos, drgObj = NM.dragdrop.dragObject;
+    if ( ! drgObj) { return; }
+    drgObj.alpha = 1;
+    drgObj.dragData = null;
+    drgObj.posBeforeDrag = null;
+    newPos = drgObj.parentBeforeDrag.toLocal(drgObj.position, drgObj.parent);
+    drgObj.parentBeforeDrag.addChild(drgObj);
+    drgObj.position.copyFrom(newPos);
+    drgObj.parentBeforeDrag = null;
     NM.dragdrop.dragObject = null;
     event.stopPropagation();
   },
@@ -130,30 +131,20 @@ NM.dragdrop = {
 };
 
 
-
-PIXI.Loader.shared.load(function() {
-
-  let resources = PIXI.Loader.shared.resources;
-  let unplaced = NM.mapdata.items.filter(function(item) { return item.group === 1; });
-  let placed = NM.mapdata.items.filter(function(item) { return item.group === 2; });
-  let mapBgImage = new PIXI.Sprite(resources.terrein.texture);
+NM.runAfterLoadingResources = function() {
+  let i;
   let leftPanel = new PIXI.Graphics();
   let scrollPanel = new PIXI.Graphics();
-  let i;
+  let mapBgImage = new PIXI.Sprite(NM.resources.terrein.texture);
+  let placed = NM.mapdata.items.filter(function(item) { return item.group === 2; });
+  let unplaced = NM.mapdata.items.filter(function(item) { return item.group === 1; });
 
-  window.console.log('unplaced:', unplaced);
-  window.console.log('placed:', placed);
-
-  NM.app = new PIXI.Application({width: 800, height: 600, antialias: true});
-
-  // Add MAP IMAGE to app.stage
+  // Add MAP IMAGE to stage
   mapBgImage.position.set(NM.app.screen.width*0.2, 0);
   NM.dragdrop.makeDraggable(mapBgImage);
   NM.app.stage.addChild(mapBgImage);
 
-  // scrollPanel.beginFill(0x650A5A);
-  // scrollPanel.endFill();
-
+  // Add LEFT PANEL to stage
   leftPanel.beginFill(0x650A5A);
   leftPanel.drawRect(0, 0, NM.app.screen.width*0.2, NM.app.screen.height);
   leftPanel.endFill();
@@ -165,11 +156,30 @@ PIXI.Loader.shared.load(function() {
   leftPanel.addChild(scrollPanel);
   NM.app.stage.addChild(leftPanel);
 
+  // Add PLACED MAP items
+  let mapBgImageW10 = mapBgImage.width*0.1;
+  let mapBgImageW20 = mapBgImage.width*0.2;
+  for (i in placed) {
+    let item = placed[i];
+    let itemType = NM.mapdata.itemtypes[item.type];
+    let sprite = new PIXI.Sprite(NM.resources[itemType.name].texture);
+    let text = new PIXI.Text(item.id);
+    text.anchor.set(0.5);
+    text.x = sprite.width / 2;
+    text.y = sprite.height / 2;
+    sprite.x = NM.lib.randomInt(mapBgImageW10, mapBgImage.width - mapBgImageW20);
+    sprite.y = NM.lib.randomInt(mapBgImageW10, mapBgImage.height - mapBgImageW20);
+    sprite.rotation = 2 * Math.PI * Math.random(); //radians
+    sprite.scale.set(itemType.scale);
+    sprite.addChild(text);
+    mapBgImage.addChild(sprite);
+  }
+
   // Add UNPLACED MAP items
   for (i in unplaced) {
     let item = unplaced[i];
     let itemType = NM.mapdata.itemtypes[item.type];
-    let sprite = new PIXI.Sprite(resources[itemType.name].texture);
+    let sprite = new PIXI.Sprite(NM.resources[itemType.name].texture);
     let text = new PIXI.Text(item.id, { fontSize: 16 });
     text.anchor.set(0.5);
     text.x = sprite.width / 2;
@@ -183,30 +193,17 @@ PIXI.Loader.shared.load(function() {
     scrollPanel.addChild(sprite);
   }
 
-  // Add PLACED MAP items
-  let mapBgImageW10 = mapBgImage.width*0.1;
-  let mapBgImageW20 = mapBgImage.width*0.2;
-  for (i in placed) {
-    let item = placed[i];
-    let itemType = NM.mapdata.itemtypes[item.type];
-    let sprite = new PIXI.Sprite(resources[itemType.name].texture);
-    let text = new PIXI.Text(item.id);
-    text.anchor.set(0.5);
-    text.x = sprite.width / 2;
-    text.y = sprite.height / 2;
-    sprite.x = NM.lib.randomInt(mapBgImageW10, mapBgImage.width - mapBgImageW20);
-    sprite.y = NM.lib.randomInt(mapBgImageW10, mapBgImage.height - mapBgImageW20);
-    sprite.rotation = 2 * Math.PI * Math.random(); //radians
-    sprite.scale.set(itemType.scale);
-    sprite.addChild(text);
-    mapBgImage.addChild(sprite);
-  }
-
   // Add the canvas that Pixi automatically created for you to
   // the document body.
   document.body.appendChild(NM.app.view);
 
-});
+};
 
+
+NM.resources = PIXI.Loader.shared.resources;
+
+NM.app = new PIXI.Application({width: 800, height: 600, antialias: true});
+
+PIXI.Loader.shared.load(NM.runAfterLoadingResources);
 
 window.console.log('NM:', NM);
