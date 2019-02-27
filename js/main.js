@@ -75,21 +75,23 @@ NM.dragdrop = {
   // An overlay container covering the entire stage.
   // Used to temporarily house the currently dragged object
   // while dragging it accross container boundries.
-  dragContainer: new PIXI.Container(),
+  dragOverlay: new PIXI.Container(),
 
   startDrag: function(event) {
     let newPos, drgObj = this;
-    window.console.log('startDrag');
+    // window.console.log('startDrag');
     drgObj.dragData = event.data;
     drgObj.parentBeforeDrag = drgObj.parent;
     drgObj.positionBeforeDrag = new PIXI.Point(drgObj.x, drgObj.y);
     drgObj.pointerStartingPos = event.data.getLocalPosition(drgObj.parent);
-    newPos = NM.dragdrop.dragContainer.toLocal(drgObj.position, drgObj.parent);
-    NM.dragdrop.dragContainer.addChild(drgObj);
-    drgObj.position.copyFrom(newPos);
+    if (drgObj.dragBringtoFront) {
+      newPos = NM.dragdrop.dragOverlay.toLocal(drgObj.position, drgObj.parent);
+      NM.dragdrop.dragOverlay.addChild(drgObj);
+      drgObj.position.copyFrom(newPos);
+    }
     drgObj.alpha = drgObj.dragOpacity;
     NM.dragdrop.dragObject = drgObj;
-    NM.app.stage.addChild(NM.dragdrop.dragContainer);
+    NM.app.stage.addChild(NM.dragdrop.dragOverlay);
     event.stopPropagation();
   },
 
@@ -97,31 +99,39 @@ NM.dragdrop = {
     let pointerEndingPos, drgObj = NM.dragdrop.dragObject;
     if ( ! drgObj) { return; }
     pointerEndingPos = drgObj.dragData.getLocalPosition(drgObj.parent);
-    drgObj.position.set(
-      drgObj.positionBeforeDrag.x + (pointerEndingPos.x - drgObj.pointerStartingPos.x),
-      drgObj.positionBeforeDrag.y + (pointerEndingPos.y - drgObj.pointerStartingPos.y)
-    );
+    let newX = drgObj.positionBeforeDrag.x;
+    let newY = drgObj.positionBeforeDrag.y;
+    if ( ! drgObj.dragLock.x) { newX += pointerEndingPos.x - drgObj.pointerStartingPos.x; }
+    if ( ! drgObj.dragLock.y) { newY += pointerEndingPos.y - drgObj.pointerStartingPos.y; }
+    drgObj.position.set(newX, newY);
   },
 
   endDrag: function(event) {
-    window.console.log('endDrag');
+    // window.console.log('endDrag');
     let newPos, drgObj = NM.dragdrop.dragObject;
     if ( ! drgObj) { return; }
     drgObj.alpha = 1;
     drgObj.dragData = null;
     drgObj.posBeforeDrag = null;
-    newPos = drgObj.parentBeforeDrag.toLocal(drgObj.position, drgObj.parent);
-    drgObj.parentBeforeDrag.addChild(drgObj);
-    drgObj.position.copyFrom(newPos);
+    if (drgObj.dragBringtoFront) {
+      newPos = drgObj.parentBeforeDrag.toLocal(drgObj.position, drgObj.parent);
+      drgObj.parentBeforeDrag.addChild(drgObj);
+      drgObj.position.copyFrom(newPos);
+    }
     drgObj.parentBeforeDrag = null;
     NM.dragdrop.dragObject = null;
     event.stopPropagation();
   },
 
-  makeDraggable: function(sprite, dragOpacity) {
+  makeDraggable: function(sprite, options) {
+    options = options || {};
     sprite.interactive = true;
     sprite.buttonMode = true;
-    sprite.dragOpacity = dragOpacity || 1;
+    sprite.dragOpacity = options.alpha || 1;
+    sprite.dragLock = options.lock || {};
+    if (typeof options.bringToFront !== 'undefined') {
+      sprite.dragBringtoFront = options.bringToFront;
+    }
     sprite
       .on('pointerdown'      , this.startDrag  )
       .on('pointermove'      , this.updateDrag )
@@ -141,7 +151,7 @@ NM.runAfterLoadingResources = function() {
 
   // Add MAP IMAGE to stage
   mapBgImage.position.set(NM.app.screen.width*0.2, 0);
-  NM.dragdrop.makeDraggable(mapBgImage);
+  NM.dragdrop.makeDraggable(mapBgImage, { bringToFront: false });
   NM.app.stage.addChild(mapBgImage);
 
   // Add LEFT PANEL to stage
@@ -152,7 +162,7 @@ NM.runAfterLoadingResources = function() {
   scrollPanel.drawRect(0, 0, leftPanel.width, leftPanel.height - 40);
   scrollPanel.hitArea = new PIXI.Rectangle(0, 0, leftPanel.width, leftPanel.height - 40);
   scrollPanel.position.set(0, 40);
-  NM.dragdrop.makeDraggable(scrollPanel);
+  NM.dragdrop.makeDraggable(scrollPanel, { lock: { x: true, y: false } });
   leftPanel.addChild(scrollPanel);
   NM.app.stage.addChild(leftPanel);
 
@@ -188,7 +198,7 @@ NM.runAfterLoadingResources = function() {
     sprite.y = i*(sprite.height*itemType.scale + 3) + 5;
     sprite.__id = 'item' + item.id;
     sprite.scale.set(itemType.scale);
-    NM.dragdrop.makeDraggable(sprite, 0.5);
+    NM.dragdrop.makeDraggable(sprite, { alpha: 0.5 });
     sprite.addChild(text);
     scrollPanel.addChild(sprite);
   }
