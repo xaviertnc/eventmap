@@ -1,4 +1,4 @@
-/*global PIXI, Scrollbox, NM, NM_Panel, NM_Scrollbox, NM_Scrollpanel */
+/*global PIXI, NM, NM_Panel, NM_Scrollbox, NM_Scrollpanel */
 
 // Includes
 // ========
@@ -47,73 +47,45 @@ NM.app = new PIXI.Application({
 
 NM.app.init = function () {
 
-  // MAP
-  let map = new PIXI.extras.Scrollbox({
-    boxWidth  : NM.app.screen.width*0.8,
-    boxHeight : NM.app.screen.height,
-    overflowX : 'hidden',
-    overflowY : 'hidden'
-  });
-  map.bgImage = new PIXI.Sprite(NM.resources.terrein.texture);
-  map.position.set(NM.app.screen.width*0.2, 0);
-  map.content.addChild(map.bgImage);
-  map.update();
+  let i;
+  let screen = NM.app.screen;
+  let mapBgImage = new PIXI.Sprite(NM.resources.terrein.texture);
+  let placed = NM.mapdata.items.filter(function(item) { return item.group === 2; });
+  let unplaced = NM.mapdata.items.filter(function(item) { return item.group === 1; });
 
+  // Add MAP IMAGE to stage
+  mapBgImage.offset = { x: NM.app.screen.width*0.2, y: 0 };
+  mapBgImage.position.set(mapBgImage.offset.x, mapBgImage.offset.y);
+  let dragLimits = NM.dragdrop.contain(mapBgImage, NM.app.screen, mapBgImage.offset);
+  NM.dragdrop.makeDraggable(mapBgImage, { bringToFront: false, dragLimits: dragLimits });
+  NM.app.stage.addChild(mapBgImage);
 
   // LEFT PANEL
   let leftPanel = new NM_Panel({
     id: 'leftPanel',
-    width: NM.app.screen.width*0.2,
-    height: NM.app.screen.height,
-    bgColor: 0x650A5A
+    width: screen.width*0.2,
+    height: screen.height,
+    bgColor: 0x650A5A,
   });
 
-
-  let i;
-  let placed = NM.mapdata.items.filter(function(item) { return item.group === 2; });
-  let unplaced = NM.mapdata.items.filter(function(item) { return item.group === 1; });
-
-  for (i=18; i<380; i++) {
-    let item = {
-      id: i,
-      type: 'Maker4x4',
-      x: 0,
-      y: 0,
-      z: 0,
-      angle: 0,
-      layer: 'base',
-      group: 1,
-      data: {}
-    };
-    unplaced.push(item);
-  }
-
-
-  // LEFT LISTBOX
-  let listTop = 40;
-  let scrollbarWidth = 10;
-  let listHeight = Math.min(55, unplaced.length)*(16 + 3) * 1.5;
-  let listWidth = NM.app.screen.width*0.2;
-  let scrollHeight = leftPanel.height - listTop;
-  let needScroll = listHeight > scrollHeight;
-  let listbox = new PIXI.extras.Scrollbox({
-    boxWidth  : listWidth,
-    boxHeight : scrollHeight,
-    overflowX : 'hidden',
-    overflowY : 'auto'
+  // LEFT SCROLLPANEL
+  let scrollbox = new NM_Scrollbox({
+    id: 'leftPanel_scrollbox',
+    top: 40,
+    left: 0,
+    parent: leftPanel,
+    width: leftPanel.width,
+    height: leftPanel.height - 40,
+    dragLock: { x_axis: true, y_axis: false },
+    borderColor: 0xFFFF00,
+    borderWidth: 1
   });
 
-  listbox.position.set(0, listTop);
-  listbox.bgImage = new PIXI.Sprite(PIXI.Texture.WHITE);
-  listbox.bgImage.width = listWidth - (needScroll ? scrollbarWidth : 0);
-  listbox.bgImage.height = listHeight;
-  listbox.bgImage.tint = 0x000000;
-  listbox.content.addChild(listbox.bgImage);
-  listbox.update();
+  leftPanel.addToStage(NM.app.stage);
 
   // Add PLACED MAP items
-  let mapBgImageW10 = map.bgImage.width*0.1;
-  let mapBgImageW20 = map.bgImage.width*0.2;
+  let mapBgImageW10 = mapBgImage.width*0.1;
+  let mapBgImageW20 = mapBgImage.width*0.2;
   for (i in placed) {
     let item = placed[i];
     let itemType = NM.mapdata.itemtypes[item.type];
@@ -122,12 +94,12 @@ NM.app.init = function () {
     text.anchor.set(0.5);
     text.x = sprite.width / 2;
     text.y = sprite.height / 2;
-    sprite.x = NM.lib.randomInt(mapBgImageW10, map.bgImage.width - mapBgImageW20);
-    sprite.y = NM.lib.randomInt(mapBgImageW10, map.bgImage.height - mapBgImageW20);
+    sprite.x = NM.lib.randomInt(mapBgImageW10, mapBgImage.width - mapBgImageW20);
+    sprite.y = NM.lib.randomInt(mapBgImageW10, mapBgImage.height - mapBgImageW20);
     sprite.rotation = 2 * Math.PI * Math.random(); //radians
     sprite.scale.set(itemType.scale);
     sprite.addChild(text);
-    map.bgImage.addChild(sprite);
+    mapBgImage.addChild(sprite);
   }
 
   // Add UNPLACED MAP items
@@ -139,24 +111,19 @@ NM.app.init = function () {
     text.anchor.set(0.5);
     text.x = sprite.width / 2;
     text.y = sprite.height / 2;
-    sprite.x = (sprite.width * itemType.scale + 3) * Math.floor(i / 55) + 5;
-    sprite.y = (i % 55) * (sprite.height * itemType.scale + 3) + 5;
+    sprite.x = 5;
+    sprite.y = i*(sprite.height*itemType.scale + 3) + 5;
     sprite.__id = 'item' + item.id;
     sprite.scale.set(itemType.scale);
     NM.dragdrop.makeDraggable(sprite, { dragOpacity: 0.5 });
     sprite.addChild(text);
-    listbox.content.addChild(sprite);
+    scrollbox.add(sprite);
   }
 
+  // Add the canvas that Pixi automatically created for you to
+  // the document body.
   document.body.appendChild(NM.app.view);
 
-  NM.app.stage.addChild(map);
-  NM.app.stage.addChild(leftPanel);
-  NM.app.stage.addChild(listbox);
-
-  window.console.log('map:', map);
-  window.console.log('listbox:', listbox);
-  window.console.log('leftPanel:', leftPanel);
 };
 
 

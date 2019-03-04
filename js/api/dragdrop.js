@@ -36,8 +36,9 @@ NM.dragdrop = {
     let newX = drgObj.positionBeforeDrag.x;
     let newY = drgObj.positionBeforeDrag.y;
     let pointerEndingPos = drgObj.dragData.getLocalPosition(drgObj.parent);
-    if ( ! drgObj.dragLock.x) { newX += pointerEndingPos.x - drgObj.pointerStartingPos.x; }
-    if ( ! drgObj.dragLock.y) { newY += pointerEndingPos.y - drgObj.pointerStartingPos.y; }
+    // window.console.log('updateDrag(), drgObj.dragLock=', drgObj.dragLock);
+    if ( ! drgObj.dragLock.x_axis) { newX += pointerEndingPos.x - drgObj.pointerStartingPos.x; }
+    if ( ! drgObj.dragLock.y_axis) { newY += pointerEndingPos.y - drgObj.pointerStartingPos.y; }
     if (drgObj.dragLimits) {
       if (newX < drgObj.dragLimits.minX) { newX = drgObj.dragLimits.minX; }
       if (newY < drgObj.dragLimits.minY) { newY = drgObj.dragLimits.minY; }
@@ -62,34 +63,35 @@ NM.dragdrop = {
     event.stopPropagation();
   },
 
-  makeDraggable: function(sprite, options) {
+  makeDraggable: function(drgObj, options) {
+    // window.console.log('makeDraggable', options);
     options = options || {};
-    sprite.interactive = true;
-    sprite.buttonMode = true;
-    sprite.dragOpacity = options.alpha || 1;
-    sprite.dragLock = options.lock || {};
-    sprite.dragLimits = options.limit;
+    drgObj.interactive = true;
+    drgObj.buttonMode = true;
+    drgObj.dragOpacity = options.dragOpacity || 1;
+    drgObj.dragLock = options.dragLock || {};
+    drgObj.dragLimits = options.dragLimits;
     if (typeof options.bringToFront !== 'undefined') {
-      sprite.dragBringtoFront = options.bringToFront;
+      drgObj.dragBringtoFront = options.dragBringToFront;
     }
-    sprite
+    drgObj
       .on('pointerdown'      , this.startDrag  )
       .on('pointermove'      , this.updateDrag )
       .on('pointerup'        , this.endDrag    )
       .on('pointerupoutside' , this.endDrag    );
   },
 
-  contain: function(sprite, container, offset) {
+  contain: function(drgObj, container, offset) {
     offset = offset || {};
     offset.x = offset.x || 0;
     offset.y = offset.y || 0;
     let dragMinX = offset.x;
     let dragMinY = offset.y;
-    if (sprite.width < container.width) {
-      dragMinX = offset.x - (sprite.width - container.width);
+    if (drgObj.width < container.width) {
+      dragMinX = offset.x - (drgObj.width - container.width);
     }
-    if (sprite.height < container.height) {
-      dragMinX = offset.y - (sprite.height - container.height);
+    if (drgObj.height < container.height) {
+      dragMinX = offset.y - (drgObj.height - container.height);
     }
     return { minX: dragMinX, minY: dragMinY };
   }
